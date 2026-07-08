@@ -118,6 +118,10 @@ On first run it automatically:
 
 ## 🧪 Real‑world demo
 
+<p align="center">
+  <img src="pdf-translate-demo.gif" alt="pdf-translate demo — before/after comparison" width="700">
+</p>
+
 ### Before → After (Chinese → Russian)
 
 Below is the pipeline output from a real Chinese heating‑tube drawing (FR0108-1):
