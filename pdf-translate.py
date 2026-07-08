@@ -471,55 +471,77 @@ def _resolve_font(page: fitz.Page, cat: str) -> str:
 # =============================================================================
 # 8b. CAUSALITY — Text placement (normal + rotated)
 # =============================================================================
+def _scale_to_fit(text: str, fontname: str, fontsize: float,
+                  max_extent: float, rotate: int) -> float:
+    """Scale fontsize so text fits within max_extent points in the
+    direction of text flow (width for 0/180, height for 90/270).
+    Never goes below MIN_FONT_SIZE."""
+    if max_extent <= 0 or not text:
+        return fontsize
+    # PyMuPDF 1.23+: get_text_length accepts fontname
+    try:
+        text_len = fitz.get_text_length(text, fontname=fontname, fontsize=fontsize)
+    except Exception:
+        text_len = len(text) * fontsize * 0.55
+    if text_len <= max_extent:
+        return max(fontsize, MIN_FONT_SIZE)
+    ratio = max_extent / text_len
+    scaled = fontsize * ratio
+    return max(scaled, MIN_FONT_SIZE)
+
+
 def _place_text(page: fitz.Page, bbox: tuple, text: str,
                 fontname: str, fontsize: float, color: int,
                 meas_cat: str = "sans", rotate: int = 0) -> tuple:
-    """Insert text at baseline position with no bbox wrapping.
-    Clips to page boundaries to prevent text overflow off-page.
-    Returns (used_bbox, scaled, overflow)."""
+    """Insert text at the exact baseline position, scaling font down
+    if the translation overflows the original bbox. Never uses
+    insert_textbox (no wrapping/clipping). Returns (used_bbox, scaled, overflow)."""
     box_w = bbox[2] - bbox[0]
     box_h = bbox[3] - bbox[1]
     if box_w <= 0 or box_h <= 0:
         return bbox, False, True
 
-    actual_size = max(fontsize, MIN_FONT_SIZE)
-    if actual_size > fontsize:
-        actual_size = fontsize
-    actual_size = max(actual_size, MIN_FONT_SIZE)
+    # Determine which bbox dimension limits text in the flow direction
+    if rotate in (0, 180):
+        max_extent = box_w
+    else:  # 90, 270
+        max_extent = box_h
+
+    actual_size = _scale_to_fit(text, fontname, fontsize, max_extent, rotate)
+    scaled = actual_size < fontsize * 0.95
 
     # Page bounds (unrotated MediaBox)
     page_h = page.mediabox.height
     page_w = page.mediabox.width
 
-    # Estimate text length at this size (rough: ~avg char width * len)
-    est_len = len(text) * actual_size * 0.55
+    # Measure final text length
+    try:
+        text_len = fitz.get_text_length(text, fontname=fontname, fontsize=actual_size)
+    except Exception:
+        text_len = len(text) * actual_size * 0.55
 
     if rotate == 0:
         pt = fitz.Point(bbox[0], bbox[3] - actual_size * 0.15)
-        # Check right edge overflow
-        if pt.x + est_len > page_w:
-            pt = fitz.Point(max(0, page_w - est_len), pt.y)
+        if pt.x + text_len > page_w:
+            pt = fitz.Point(max(0, page_w - text_len), pt.y)
     elif rotate == 90:
         pt = fitz.Point(bbox[0], bbox[3])
-        # Text goes upward; check top edge
-        if pt.y - est_len < 0:
-            pt = fitz.Point(pt.x, min(page_h, est_len))
+        if pt.y - text_len < 0:
+            pt = fitz.Point(pt.x, min(page_h, text_len))
     elif rotate == 180:
         pt = fitz.Point(bbox[2], bbox[3])
-        # Text goes leftward; check left edge
-        if pt.x - est_len < 0:
-            pt = fitz.Point(min(page_w, est_len), pt.y)
+        if pt.x - text_len < 0:
+            pt = fitz.Point(min(page_w, text_len), pt.y)
     elif rotate == 270:
         pt = fitz.Point(bbox[0], bbox[1])
-        # Text goes downward; check bottom edge
-        if pt.y + est_len > page_h:
-            pt = fitz.Point(pt.x, max(0, page_h - est_len))
+        if pt.y + text_len > page_h:
+            pt = fitz.Point(pt.x, max(0, page_h - text_len))
     else:
         pt = fitz.Point(bbox[0], bbox[3])
 
     page.insert_text(pt, text, fontname=fontname, fontsize=actual_size,
                      color=color, rotate=rotate)
-    return bbox, False, False
+    return bbox, scaled, False
 
 
 # =============================================================================
