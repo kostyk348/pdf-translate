@@ -9,6 +9,7 @@
 [![DeepLX](https://img.shields.io/badge/translation-DeepLX-0a66c2)](https://github.com/OwO-Network/DeepLX)
 [![PyMuPDF](https://img.shields.io/badge/PDF-PyMuPDF-orange)](https://github.com/pymupdf/PyMuPDF)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+[![CI](https://github.com/kostyk348/pdf-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/kostyk348/pdf-translate/actions/workflows/ci.yml)
 
 <p align="center">
   <i>Chinese → Russian · English → Russian · 30+ language pairs · No API key · No broken layout</i>
@@ -117,21 +118,40 @@ On first run it automatically:
 
 ## 🧪 Real‑world demo
 
+### Before → After (Chinese → Russian)
+
 Below is the pipeline output from a real Chinese heating‑tube drawing (FR0108-1):
 
 ```
+┌─ Input ──────────────────────────────────────┐
+│  电热管固定片                                  │
+│  尺寸: 25×30×2                                │
+│  公差: ±0.1                                   │
+│  磁柱: φ6×10                                 │
+│  材料: SUS304                                 │
+└───────────────────────────────────────────────┘
+                      │
+                      ▼
+┌─ Output ─────────────────────────────────────┐
+│  Крепежные пластины для нагревательных         │
+│  элементов                                    │
+│  Размеры: 25×30×2                            │
+│  Допуск: ±0.1                                │
+│  Магнитный столб: φ6×10                     │
+│  Материал: SUS304                            │
+└───────────────────────────────────────────────┘
+```
+
+```
 [pipeline] en → ru  |  FR0108-1 电热管.pdf
-[sense] Parsing PDF...
-[sense] 1 pages, 30 text blocks (46 lines), 0 images
-[sense] 39 rotated line(s) detected
-[sense] CJK detected, switching source to zh
+[sense] Parsing PDF...  1 pages, 46 lines, 39 rotated
 [logic] Translating 46 lines (zh→ru)...
 [causality] Rebuilding PDF layout...
 [output] FR0108-1 电热管 (ru).pdf  (320 KB)
 [pipeline] Done.
 ```
 
-The result is a **drop‑in replacement** — open it in any PDF viewer and every label, dimension, and note is in Russian, at the exact same position as the original.
+> **Result**: a drop‑in replacement — open it in any PDF viewer and every label, dimension, and note is in Russian at the exact same position as the original.
 
 ---
 
