@@ -52,7 +52,7 @@ except ImportError:
 # =============================================================================
 # 2. CONFIG
 # =============================================================================
-MIN_FONT_SIZE = 7.0
+MIN_FONT_SIZE = 5.0
 
 DEEPLX_URL = "http://127.0.0.1:1188/translate"
 DEEPLX_BIN = str(VENV_DIR / "bin" / "deeplx")
@@ -471,18 +471,73 @@ def _resolve_font(page: fitz.Page, cat: str) -> str:
 # =============================================================================
 # 8b. CAUSALITY — Text placement (normal + rotated)
 # =============================================================================
-def _scale_to_fit(text: str, fontname: str, fontsize: float,
-                  max_extent: float, rotate: int) -> float:
-    """Scale fontsize so text fits within max_extent points in the
-    direction of text flow (width for 0/180, height for 90/270).
-    Never goes below MIN_FONT_SIZE."""
+
+# Cache page grid lines for table-cell detection per page
+_page_grid_cache = {}
+
+def _detect_page_grid(page: fitz.Page) -> tuple:
+    """Extract long horizontal / vertical lines from page drawings to
+    approximate table cell boundaries. Returns (h_lines, v_lines)
+    where each is a list of (lo, hi, pos) sorted by position."""
+    pno = id(page)
+    if pno in _page_grid_cache:
+        return _page_grid_cache[pno]
+    drawings = page.get_drawings()
+    h_lines = []
+    v_lines = []
+    for d in drawings:
+        for item in d.get('items', []):
+            if item[0] != 'l':
+                continue
+            x1, y1 = item[1]
+            x2, y2 = item[2]
+            dx, dy = abs(x2 - x1), abs(y2 - y1)
+            if dy < 2 and dx > 30:
+                h_lines.append((min(x1, x2), max(x1, x2), (y1 + y2) / 2))
+            elif dx < 2 and dy > 30:
+                v_lines.append((min(y1, y2), max(y1, y2), (x1 + x2) / 2))
+    h_lines.sort(key=lambda x: x[2])
+    v_lines.sort(key=lambda x: x[2])
+    _page_grid_cache[pno] = (h_lines, v_lines)
+    return h_lines, v_lines
+
+def _find_cell_extent(bbox: tuple, rotate: int,
+                      h_lines: list, v_lines: list) -> float | None:
+    """Find the enclosing table cell extent for a text bbox.
+    Returns extent in the text-flow direction, or None if no cell found."""
+    cx = (bbox[0] + bbox[2]) / 2
+    cy = (bbox[1] + bbox[3]) / 2
+    top = bottom = left = right = None
+    for x1, x2, y in h_lines:
+        if x1 <= cx <= x2:
+            if y < cy and (top is None or y > top):
+                top = y
+            if y > cy and (bottom is None or y < bottom):
+                bottom = y
+    for y1, y2, x in v_lines:
+        if y1 <= cy <= y2:
+            if x < cx and (left is None or x > left):
+                left = x
+            if x > cx and (right is None or x < right):
+                right = x
+    if all(v is not None for v in (top, bottom, left, right)):
+        return (right - left) if rotate in (0, 180) else (bottom - top)
+    return None
+
+def _text_extent(text: str, fontsize: float) -> float:
+    """Estimate rendered text width in points using Liberation Sans metrics.
+    Based on measured avg glyph width ratio of ~0.54 for Cyrillic.
+    Using 0.55 gives a slight overestimate for safety."""
+    return len(text) * fontsize * 0.55
+
+def _scale_to_fit(text: str, fontsize: float,
+                  max_extent: float) -> float:
+    """Scale fontsize so text fits within max_extent points.
+    Uses heuristic text extent estimation calibrated for Liberation Sans
+    Cyrillic. Never goes below MIN_FONT_SIZE."""
     if max_extent <= 0 or not text:
         return fontsize
-    # PyMuPDF 1.23+: get_text_length accepts fontname
-    try:
-        text_len = fitz.get_text_length(text, fontname=fontname, fontsize=fontsize)
-    except Exception:
-        text_len = len(text) * fontsize * 0.55
+    text_len = _text_extent(text, fontsize)
     if text_len <= max_extent:
         return max(fontsize, MIN_FONT_SIZE)
     ratio = max_extent / text_len
@@ -494,48 +549,50 @@ def _place_text(page: fitz.Page, bbox: tuple, text: str,
                 fontname: str, fontsize: float, color: int,
                 meas_cat: str = "sans", rotate: int = 0) -> tuple:
     """Insert text at the exact baseline position, scaling font down
-    if the translation overflows the original bbox. Never uses
-    insert_textbox (no wrapping/clipping). Returns (used_bbox, scaled, overflow)."""
+    if the translation overflows the original bbox or enclosing table
+    cell. Never uses insert_textbox (no wrapping/clipping).
+    Returns (used_bbox, scaled, overflow)."""
     box_w = bbox[2] - bbox[0]
     box_h = bbox[3] - bbox[1]
     if box_w <= 0 or box_h <= 0:
         return bbox, False, True
 
-    # Determine which bbox dimension limits text in the flow direction
-    if rotate in (0, 180):
-        max_extent = box_w
-    else:  # 90, 270
-        max_extent = box_h
+    # Try to detect enclosing table cell for a better extent
+    h_lines, v_lines = _detect_page_grid(page)
+    cell_extent = _find_cell_extent(bbox, rotate, h_lines, v_lines)
 
-    actual_size = _scale_to_fit(text, fontname, fontsize, max_extent, rotate)
+    # Determine which dimension limits text in the flow direction
+    if rotate in (0, 180):
+        max_extent = cell_extent if cell_extent is not None else box_w
+    else:  # 90, 270
+        max_extent = cell_extent if cell_extent is not None else box_h
+
+    actual_size = _scale_to_fit(text, fontsize, max_extent)
     scaled = actual_size < fontsize * 0.95
 
     # Page bounds (unrotated MediaBox)
     page_h = page.mediabox.height
     page_w = page.mediabox.width
 
-    # Measure final text length
-    try:
-        text_len = fitz.get_text_length(text, fontname=fontname, fontsize=actual_size)
-    except Exception:
-        text_len = len(text) * actual_size * 0.55
+    # Measure final text length using heuristic
+    text_len = _text_extent(text, actual_size)
 
     if rotate == 0:
         pt = fitz.Point(bbox[0], bbox[3] - actual_size * 0.15)
         if pt.x + text_len > page_w:
-            pt = fitz.Point(max(0, page_w - text_len), pt.y)
+            pt = fitz.Point(max(0, page_w - text_len - 5), pt.y)
     elif rotate == 90:
         pt = fitz.Point(bbox[0], bbox[3])
         if pt.y - text_len < 0:
-            pt = fitz.Point(pt.x, min(page_h, text_len))
+            pt = fitz.Point(pt.x, min(page_h, text_len + 5))
     elif rotate == 180:
         pt = fitz.Point(bbox[2], bbox[3])
         if pt.x - text_len < 0:
-            pt = fitz.Point(min(page_w, text_len), pt.y)
+            pt = fitz.Point(min(page_w, text_len + 5), pt.y)
     elif rotate == 270:
         pt = fitz.Point(bbox[0], bbox[1])
         if pt.y + text_len > page_h:
-            pt = fitz.Point(pt.x, max(0, page_h - text_len))
+            pt = fitz.Point(pt.x, max(0, page_h - text_len - 5))
     else:
         pt = fitz.Point(bbox[0], bbox[3])
 
