@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.audit.json
+*.pyc
+/translated/
+.DS_Store
