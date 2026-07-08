@@ -1,91 +1,227 @@
-# pdf-translate
+<div align="center">
 
-**Layout‑preserving PDF translation** — translates technical PDFs (Chinese→Russian, English→Russian, etc.) while keeping every line at its exact position, including rotated text, tables, and dimensions.
+# 📄 pdf-translate
 
-## Features
+**Translate technical PDFs. Keep every line exactly where it belongs.**
 
-- **Line‑level translation** — each line keeps its original position, rotation, font, and size.
-- **Rotated text support** — handles any rotation angle (90°, 180°, 270°, -90°).
-- **DeepLX backend** — free, high‑quality translation via reverse‑engineered DeepL API (no API key needed).
-- **Auto‑language detection** — automatically detects CJK characters and switches source language.
-- **No white rectangles** — redacts original text without covering underlying drawings.
-- **Overflow handling** — text that would overflow the page is repositioned to stay visible.
-- **Hash‑chain audit trail** — every translation step is cryptographically chained for verifiability.
-- **Image OCR** — optional OCR for text embedded in images (`--ocr`).
-- **Self‑contained** — auto‑creates its own Python virtual environment on first run.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![DeepLX](https://img.shields.io/badge/translation-DeepLX-0a66c2)](https://github.com/OwO-Network/DeepLX)
+[![PyMuPDF](https://img.shields.io/badge/PDF-PyMuPDF-orange)](https://github.com/pymupdf/PyMuPDF)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-## Requirements
+<p align="center">
+  <i>Chinese → Russian · English → Russian · 30+ language pairs · No API key · No broken layout</i>
+</p>
 
-- Linux (tested on Debian/Ubuntu)
-- Python 3.10+
-- Liberation fonts (`fonts-liberation` package)
+```
+                  ╔══════════════════════════╗
+                  ║      pdf-translate       ║
+                  ║  Layout-Preserving PDF   ║
+                  ║      Translation         ║
+                  ╚══════════════════════════╝
+                          │
+     ┌────────────────────┼────────────────────┐
+     │                    │                    │
+  ┌──▼──┐           ┌────▼────┐          ┌────▼───┐
+  │SENSE│ ────────> │  LOGIC  │ ───────> │CAUSALI-│
+  │parse│  extract  │ DeepLX  │  redact+ │  TY    │
+  │ PDF │   lines   │translate│  insert  │output  │
+  └─────┘           └─────────┘          └────────┘
+                          │                    │
+                          │                    ▼
+                          │            ┌────────────┐
+                          └────────────│audit.json  │
+                                       │hash‑chain  │
+                                       └────────────┘
+```
 
-## Install
+</div>
+
+---
+
+## ✨ Features
+
+| Capability | Description |
+|---|---|
+| **Layout‑perfect** | Every line keeps its original position, rotation, font and size. No wrapping, no clipping. |
+| **Rotated text** | Handles 0°, 90°, 180°, 270°, -90° — even mixed on the same page. |
+| **No API key** | Uses [DeepLX](https://github.com/OwO-Network/DeepLX) — a free, reverse‑engineered DeepL endpoint. |
+| **Auto CJK** | Detects Chinese/Japanese/Korean characters and switches source language automatically. |
+| **No white rectangles** | Redacts original text with `fill=None` — underlying drawings stay visible. |
+| **Overflow guard** | Long translations are repositioned to stay within page boundaries. |
+| **Audit trail** | Every step is cryptographically chained in a hash‑based audit log. |
+| **Image OCR** | Optional OCR for text inside embedded images (`--ocr`). |
+| **Self‑booting** | Creates its own venv on first run — zero manual setup. |
+
+---
+
+## 🚀 Quick start
 
 ```bash
-# Clone
+# Requirements
+sudo apt install fonts-liberation python3 python3-venv
+
+# Grab it
 git clone https://github.com/kostyk348/pdf-translate.git
 cd pdf-translate
 
-# Ensure Liberation fonts (for Cyrillic rendering)
-sudo apt install fonts-liberation
-
-# Run — virtual environment and dependencies auto‑install on first launch
-./pdf-translate.py input.pdf output.pdf -f zh -t ru
+# Translate a Chinese technical drawing to Russian
+./pdf-translate.py input.pdf output-ru.pdf -f zh -t ru
 ```
 
-## Usage
+On first run it automatically:
+1. Creates a Python virtual environment
+2. Installs PyMuPDF + Pillow
+3. Downloads the DeepLX binary
+4. Starts the DeepLX translation server
+
+**No `pip install`, no `npm install`, no Docker, no API signup.**
+
+---
+
+## 📖 Usage
 
 ```bash
-# Chinese → Russian (auto‑detects CJK)
-./pdf-translate.py drawing.pdf drawing-ru.pdf -f zh -t ru
+# Chinese → Russian (auto-detects CJK, `-f` optional)
+./pdf-translate.py drawing.pdf ru.pdf -f zh -t ru
 
 # English → Russian
-./pdf-translate.py doc.pdf doc-ru.pdf -f en -t ru
+./pdf-translate.py manual.pdf manual-ru.pdf -f en -t ru
 
-# With verification
+# Verify integrity with hash‑chain audit
 ./pdf-translate.py doc.pdf doc-de.pdf -f en -t de --verify
 
-# With image OCR
-./pdf-translate.py doc.pdf doc-ru.pdf --ocr
-
 # Specific page range
-./pdf-translate.py doc.pdf doc-ru.pdf -f zh -t ru --page 1-5
+./pdf-translate.py doc.pdf out.pdf -f zh -t ru --page 3-7
+
+# With image OCR
+./pdf-translate.py scan.pdf scan-ru.pdf --ocr
 
 # Disable auto‑language detection
-./pdf-translate.py doc.pdf doc-ru.pdf -f zh -t ru --no-auto-lang
+./pdf-translate.py doc.pdf out.pdf -f zh -t ru --no-auto-lang
 ```
 
-The **DeepLX** server starts automatically on first translation.
+### Arguments
 
-## Output
+| Arg | Default | Description |
+|---|---|---|
+| `-f, --from` | `en` | Source language (ZH, EN, RU, DE, FR, etc.) |
+| `-t, --to` | `ru` | Target language |
+| `--page` | all | Page range, e.g. `1-5` or `1,3,5` |
+| `--ocr` | off | OCR text in embedded images |
+| `--verify` | off | Verify hash‑chain audit log after translation |
+| `--no-auto-lang` | off | Skip automatic CJK detection |
 
-- **Translated PDF** — preserves original layout, all text replaced in‑place.
-- **Audit log** — `<input>.audit.json` with hash‑chain of every translation step.
+---
 
-## How it works
+## 🧪 Real‑world demo
+
+Below is the pipeline output from a real Chinese heating‑tube drawing (FR0108-1):
 
 ```
-input.pdf → SENSE (parse, extract lines) → LOGIC (DeepLX translate) → CAUSALITY (redact + insert) → output.pdf
-                                                                                                      ↘
-                                                                                            audit.json (hash‑chain)
+[pipeline] en → ru  |  FR0108-1 电热管.pdf
+[sense] Parsing PDF...
+[sense] 1 pages, 30 text blocks (46 lines), 0 images
+[sense] 39 rotated line(s) detected
+[sense] CJK detected, switching source to zh
+[logic] Translating 46 lines (zh→ru)...
+[causality] Rebuilding PDF layout...
+[output] FR0108-1 电热管 (ru).pdf  (320 KB)
+[pipeline] Done.
 ```
 
-## Supported language pairs
+The result is a **drop‑in replacement** — open it in any PDF viewer and every label, dimension, and note is in Russian, at the exact same position as the original.
 
-Any pair supported by DeepL:
-- Chinese → Russian, English, German, French, Japanese, etc.
-- English → Russian, German, French, Spanish, etc.
-- 30+ languages total.
+---
 
-See [DeepL language support](https://www.deepl.com/docs-api/translate-text) for the full list.
+## 🔧 How it works
 
-## Architecture
+```
+ ┌─────────┐   ┌──────────────┐   ┌──────────────────┐   ┌──────────┐
+ │  SENSE  │──>│     FACT     │──>│      LOGIC       │──>│CAUSALITY │
+ │ parse   │   │ extract      │   │ DeepLX translate │   │ redact   │
+ │ structure│   │ lines+spans  │   │ per-line, retry  │   │ +insert  │
+ └─────────┘   └──────────────┘   └──────────────────┘   └─────┬────┘
+                                                                │
+                                                           ┌────▼────┐
+                                                           │VERIFIER │
+                                                           │ audit   │
+                                                           │ chain   │
+                                                           └─────────┘
+```
 
-- `pdf-translate.py` — single‑file pipeline (SENSE → FACT → LOGIC → CAUSALITY → VERIFIER)
-- `.venv/bin/deeplx` — DeepLX reverse‑engineered DeepL API server
-- Python libraries: PyMuPDF (PDF processing), Pillow (image OCR), DeepLX (translation via HTTP)
+**SENSE** — Reads the PDF with PyMuPDF, extracts text blocks, lines, and spans with full positioning metadata (bbox, rotation, font, size).  
+**FACT** — Filters, deduplicates, and sorts lines into a canonical ordered list.  
+**LOGIC** — Sends each line to the DeepLX server for translation. Retries on failure.  
+**CAUSALITY** — Redacts original Chinese text (no white rectangles), inserts translated text at the exact same baseline position with matching rotation.  
+**VERIFIER** — Computes a hash chain over the entire translation log and verifies integrity.
 
-## License
+---
 
-MIT
+## 🌐 Supported languages
+
+Any combination supported by DeepL. Common pairs:
+
+| Source | Target |
+|---|---|
+| Chinese (ZH) | Russian, English, German, French, Japanese, Korean |
+| English (EN) | Russian, German, French, Spanish, Italian, Portuguese |
+| Japanese (JA) | English, Chinese, Korean |
+| Russian (RU) | English, German, French |
+
+Full list: [DeepL docs](https://www.deepl.com/docs-api/translate-text)
+
+---
+
+## 📦 Project structure
+
+```
+pdf-translate/
+├── pdf-translate.py   # single‑file pipeline (SENSE → ... → VERIFIER)
+├── .venv/
+│   └── bin/
+│       └── deeplx     # DeepLX translation server (auto‑downloaded)
+├── README.md
+├── LICENSE
+└── requirements.txt
+```
+
+---
+
+## 💬 Why pdf-translate?
+
+Existing tools either:
+- Use paid APIs (Google Cloud, AWS Translate)
+- Ruin the layout (wrapping, missing rotated text, white rectangles over drawings)
+- Require complex Docker setup
+- Have no audit trail
+
+**pdf-translate** solves all of these in a single self‑contained Python script.
+
+---
+
+## 🤝 Contributing
+
+PRs are very welcome! Ideas:
+
+- Multiprocessing for large documents
+- GUI / web frontend
+- More translation backends (LibreTranslate, local LLM)
+- Windows / macOS support for auto‑bootstrap
+
+Check [open issues](https://github.com/kostyk348/pdf-translate/issues) for planned work.
+
+---
+
+## ⭐ Support
+
+If this saved you time, **star the repo**! It helps others find it.
+
+[![GitHub stars](https://img.shields.io/github/stars/kostyk348/pdf-translate?style=social)](https://github.com/kostyk348/pdf-translate)
+
+---
+
+## 📄 License
+
+MIT — do whatever you want, just don't blame us.
