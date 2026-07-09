@@ -116,36 +116,6 @@ On first run it automatically:
 
 ---
 
-## 🧪 Real‑world demo
-
-<p align="center">
-  <img src="pdf-translate-demo.gif" alt="pdf-translate demo — before/after comparison" width="700">
-</p>
-
-### Before → After (Chinese → Russian)
-
-Below is the pipeline output from a real Chinese heating‑tube drawing (FR0108-1):
-
-```
-┌─ Input ──────────────────────────────────────┐
-│  电热管固定片                                  │
-│  尺寸: 25×30×2                                │
-│  公差: ±0.1                                   │
-│  磁柱: φ6×10                                 │
-│  材料: SUS304                                 │
-└───────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─ Output ─────────────────────────────────────┐
-│  Крепежные пластины для нагревательных         │
-│  элементов                                    │
-│  Размеры: 25×30×2                            │
-│  Допуск: ±0.1                                │
-│  Магнитный столб: φ6×10                     │
-│  Материал: SUS304                            │
-└───────────────────────────────────────────────┘
-```
-
 ```
 [pipeline] en → ru  |  FR0108-1 电热管.pdf
 [sense] Parsing PDF...  1 pages, 46 lines, 39 rotated
