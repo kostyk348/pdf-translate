@@ -9,6 +9,11 @@ Usage:
   ./pdf-translate.py input.pdf output.pdf -f zh -t ru
   ./pdf-translate.py input.pdf output.pdf -f en -t ru --page 1-10
   ./pdf-translate.py input.pdf output.pdf --ocr    # enable image OCR
+
+JSON workflow (offline / external translation):
+  ./pdf-translate.py input.pdf --export-json lines.json -f zh -t ru
+  ./pdf-translate.py --translate-json lines.json        # translate via DeepLX in-place
+  ./pdf-translate.py input.pdf output.pdf --import-json lines.json
 """
 
 import argparse, hashlib, io, json, math, os, subprocess, sys, textwrap, time
@@ -381,6 +386,106 @@ def collect_lines(pages: list[PageModel]) -> list[TextLine]:
         for tl in pg.text_lines:
             lines.append(tl)
     return lines
+
+
+# =============================================================================
+# 6b. JSON EXPORT / IMPORT / TRANSLATE
+# =============================================================================
+def export_json(lines: list[TextLine], from_code: str, to_code: str, path: str):
+    """Export parsed lines to JSON for offline translation."""
+    data = {
+        "meta": {
+            "source_lang": from_code,
+            "target_lang": to_code,
+            "total_lines": len(lines),
+        },
+        "lines": [
+            {
+                "key": list(tl.key),
+                "page_num": tl.page_num,
+                "block_idx": tl.block_idx,
+                "line_idx": tl.line_idx,
+                "bbox": list(tl.bbox),
+                "text": tl.text,
+                "translated": "",
+                "font": tl.font,
+                "size": tl.size,
+                "color": tl.color,
+                "flags": tl.flags,
+                "dir": list(tl.dir),
+                "angle": tl.angle,
+            }
+            for tl in lines
+        ],
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"[export] {len(lines)} lines → {path}", file=sys.stderr)
+
+
+def import_json(path: str) -> dict:
+    """Import pre-translated JSON. Returns translations dict keyed by tuple(key)."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    translations = {}
+    for entry in data["lines"]:
+        key = tuple(entry["key"])
+        translated = entry.get("translated", "").strip()
+        if translated:
+            translations[key] = translated
+    meta = data.get("meta", {})
+    print(f"[import] {len(translations)} translated lines from {path}"
+          f" ({meta.get('source_lang', '?')}→{meta.get('target_lang', '?')})",
+          file=sys.stderr)
+    return translations, data
+
+
+def import_json_lines(path: str) -> list[TextLine]:
+    """Import JSON and reconstruct TextLine objects for rebuild."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    lines = []
+    for entry in data["lines"]:
+        lines.append(TextLine(
+            page_num=entry["page_num"],
+            block_idx=entry["block_idx"],
+            line_idx=entry["line_idx"],
+            bbox=tuple(entry["bbox"]),
+            text=entry["text"],
+            font=entry.get("font", "Helvetica"),
+            size=entry.get("size", 11.0),
+            color=entry.get("color", 0),
+            flags=entry.get("flags", 0),
+            dir=tuple(entry.get("dir", [1.0, 0.0])),
+        ))
+    return lines
+
+
+def translate_json(path: str):
+    """Translate a JSON file in-place via DeepLX."""
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    meta = data.get("meta", {})
+    from_code = meta.get("source_lang", "en")
+    to_code = meta.get("target_lang", "ru")
+    _start_deeplx()
+    total = len(data["lines"])
+    translated_count = 0
+    for idx, entry in enumerate(data["lines"]):
+        text = entry.get("text", "").strip()
+        if not text:
+            continue
+        if entry.get("translated", "").strip():
+            continue
+        entry["translated"] = deeplx_translate(text, from_code, to_code)
+        translated_count += 1
+        if (idx + 1) % 20 == 0:
+            print(f"  {idx+1}/{total}", file=sys.stderr)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"[translate] {translated_count}/{total} lines translated ({from_code}→{to_code})",
+          file=sys.stderr)
+    print(f"[translate] Saved to {path}", file=sys.stderr)
 
 
 # =============================================================================
@@ -767,11 +872,16 @@ def main():
             Examples:
               ./pdf-translate.py doc.pdf doc-ru.pdf -f zh -t ru
               ./pdf-translate.py doc.pdf doc-de.pdf -f en -t de --page 1-10
-              ./pdf-translate.py doc.pdf doc-ru.pdf --ocr   # also OCR images
+              ./pdf-translate.py doc.pdf doc-ru.pdf --ocr
+
+            JSON workflow:
+              ./pdf-translate.py doc.pdf --export-json lines.json -f zh -t ru
+              ./pdf-translate.py --translate-json lines.json
+              ./pdf-translate.py doc.pdf doc-ru.pdf --import-json lines.json
         """),
     )
-    ap.add_argument("input", help="Input PDF")
-    ap.add_argument("output", help="Output PDF")
+    ap.add_argument("input", nargs="?", help="Input PDF (required unless --translate-json)")
+    ap.add_argument("output", nargs="?", help="Output PDF (required unless --export-json or --translate-json)")
     ap.add_argument("-f", "--from", dest="from_code", default="en", help="Source language (default: en)")
     ap.add_argument("-t", "--to", dest="to_code", default="ru", help="Target language (default: ru)")
     ap.add_argument("--page", help="Page range, e.g. 1-5,3,7-9")
@@ -780,12 +890,34 @@ def main():
     ap.add_argument("--verify", action="store_true", help="Run post‑translation verification")
     ap.add_argument("--no-auto-lang", action="store_true",
                     help="Disable auto‑detection of Chinese in text (use --from as-is)")
+    ap.add_argument("--export-json", metavar="FILE",
+                    help="Export parsed lines to JSON (stops after SENSE+FACT)")
+    ap.add_argument("--import-json", metavar="FILE",
+                    help="Import pre-translated JSON and rebuild PDF (skips LOGIC)")
+    ap.add_argument("--translate-json", metavar="FILE",
+                    help="Translate a JSON file in-place via DeepLX (standalone mode)")
 
     args = ap.parse_args()
 
+    # ---- Standalone: --translate-json ----
+    if args.translate_json:
+        if not os.path.exists(args.translate_json):
+            print(f"Error: file not found: {args.translate_json}", file=sys.stderr)
+            sys.exit(1)
+        print(f"[pipeline] translate-json | {args.translate_json}", file=sys.stderr)
+        translate_json(args.translate_json)
+        return
+
+    # ---- PDF modes: need input ----
+    if not args.input:
+        ap.error("input PDF is required (unless using --translate-json)")
     if not os.path.exists(args.input):
         print(f"Error: input not found: {args.input}", file=sys.stderr)
         sys.exit(1)
+
+    # --export-json doesn't need output
+    if not args.output and not args.export_json:
+        ap.error("output PDF is required (unless using --export-json or --translate-json)")
 
     audit_path = args.audit or (Path(args.input).stem + ".audit.json")
     audit = AuditLog()
@@ -827,36 +959,45 @@ def main():
                   file=sys.stderr)
             from_code = "zh"
 
+    # ---- Export JSON mode ----
+    if args.export_json:
+        export_json(lines, from_code, args.to_code, args.export_json)
+        doc.close()
+        return
+
     # ---- LOGIC (DeepLX) ----
-    _start_deeplx()
+    if args.import_json:
+        translations, json_data = import_json(args.import_json)
+    else:
+        _start_deeplx()
 
-    translations = {}
-    print(f"[logic] Translating {len(lines)} lines ({from_code}→{args.to_code})...", file=sys.stderr)
-    for idx, tl in enumerate(lines):
-        txt = tl.text.strip()
-        if not txt:
-            translations[tl.key] = txt
-            continue
+        translations = {}
+        print(f"[logic] Translating {len(lines)} lines ({from_code}→{args.to_code})...", file=sys.stderr)
+        for idx, tl in enumerate(lines):
+            txt = tl.text.strip()
+            if not txt:
+                translations[tl.key] = txt
+                continue
 
-        audit.append({
-            "stage": "logic_input",
-            "page": tl.page_num,
-            "block": tl.block_idx,
-            "line": tl.line_idx,
-            "angle": tl.angle,
-            "text": txt[:200],
-        })
+            audit.append({
+                "stage": "logic_input",
+                "page": tl.page_num,
+                "block": tl.block_idx,
+                "line": tl.line_idx,
+                "angle": tl.angle,
+                "text": txt[:200],
+            })
 
-        try:
-            translated = deeplx_translate(txt, from_code, args.to_code)
-        except Exception as e:
-            print(f"  [warn] page {tl.page_num} block {tl.block_idx} line {tl.line_idx}: {e}",
-                  file=sys.stderr)
-            translated = txt
+            try:
+                translated = deeplx_translate(txt, from_code, args.to_code)
+            except Exception as e:
+                print(f"  [warn] page {tl.page_num} block {tl.block_idx} line {tl.line_idx}: {e}",
+                      file=sys.stderr)
+                translated = txt
 
-        translations[tl.key] = translated
-        if (idx + 1) % 20 == 0:
-            print(f"  {idx+1}/{len(lines)}", file=sys.stderr)
+            translations[tl.key] = translated
+            if (idx + 1) % 20 == 0:
+                print(f"  {idx+1}/{len(lines)}", file=sys.stderr)
 
     # ---- CAUSALITY ----
     print(f"[causality] Rebuilding PDF layout...", file=sys.stderr)

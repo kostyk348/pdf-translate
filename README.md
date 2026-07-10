@@ -118,6 +118,46 @@ On first run it automatically:
 ./pdf-translate.py doc.pdf out.pdf -f zh -t ru --no-auto-lang
 ```
 
+### JSON workflow (offline / external translation)
+
+Translate PDFs in three steps — parse, translate externally, rebuild:
+
+```bash
+# Step 1: Export parsed lines to JSON
+./pdf-translate.py input.pdf --export-json lines.json -f zh -t ru
+
+# Step 2: Translate via DeepLX (or edit JSON by hand / use another tool)
+./pdf-translate.py --translate-json lines.json
+
+# Step 3: Rebuild PDF from translated JSON
+./pdf-translate.py input.pdf output.pdf --import-json lines.json
+```
+
+The JSON file contains every line with position, font, rotation metadata.
+You can translate it with DeepLX, edit translations by hand, or feed it to
+any external translation pipeline — then import back to rebuild the PDF.
+
+```json
+{
+  "meta": { "source_lang": "zh", "target_lang": "ru", "total_lines": 46 },
+  "lines": [
+    {
+      "key": [0, 0, 0],
+      "page_num": 0,
+      "bbox": [100.0, 200.0, 300.0, 215.0],
+      "text": "原文字",
+      "translated": "переведённый текст",
+      "font": "Arial",
+      "size": 12.0,
+      "color": 0,
+      "flags": 0,
+      "dir": [1.0, 0.0],
+      "angle": 0.0
+    }
+  ]
+}
+```
+
 ### Arguments
 
 | Arg | Default | Description |
@@ -128,6 +168,9 @@ On first run it automatically:
 | `--ocr` | off | OCR text in embedded images |
 | `--verify` | off | Verify hash‑chain audit log after translation |
 | `--no-auto-lang` | off | Skip automatic CJK detection |
+| `--export-json FILE` | — | Export parsed lines to JSON (stops after SENSE+FACT) |
+| `--import-json FILE` | — | Import pre-translated JSON, skip LOGIC |
+| `--translate-json FILE` | — | Translate JSON file in-place via DeepLX (standalone) |
 
 ---
 
