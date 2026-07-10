@@ -65,6 +65,11 @@ Translating MSP430-UIF JTAG emulator documentation (Chinese → Russian):
   <img src="demo-files/msp430uif-demo.gif" alt="pdf-translate demo — MSP430-UIF manual zh→ru" width="600">
 </p>
 
+| File | Description |
+|---|---|
+| [`demo-files/msp430uif-zh.pdf`](demo-files/msp430uif-zh.pdf) | Original (Chinese) |
+| [`demo-files/msp430uif-ru.pdf`](demo-files/msp430uif-ru.pdf) | Translated (Russian) |
+
 ---
 
 ## 🚀 Quick start
