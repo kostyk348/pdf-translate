@@ -192,7 +192,6 @@ pdf-translate/
 │   └── bin/
 │       └── deeplx     # DeepLX translation server (auto‑downloaded)
 ├── demo-files/
-│   ├── pdf-translate-demo.gif
 │   └── msp430uif-demo.gif
 ├── README.md
 ├── LICENSE
