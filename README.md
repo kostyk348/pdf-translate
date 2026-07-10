@@ -74,6 +74,8 @@ Translating MSP430-UIF JTAG emulator documentation (Chinese → Russian):
 
 ## 🚀 Quick start
 
+### Linux
+
 ```bash
 # Requirements
 sudo apt install fonts-liberation python3 python3-venv
@@ -86,6 +88,22 @@ cd pdf-translate
 ./pdf-translate.py input.pdf output-ru.pdf -f zh -t ru
 ```
 
+### Windows
+
+```powershell
+# Requirements: Python 3.10+ installed and in PATH
+
+# Grab it
+git clone https://github.com/kostyk348/pdf-translate.git
+cd pdf-translate
+
+# Translate (use python directly — no shebang on Windows)
+python pdf-translate.py input.pdf output-ru.pdf -f zh -t ru
+```
+
+> **Note:** On Windows, use `python pdf-translate.py` instead of `./pdf-translate.py`.
+> The auto-venv bootstrap creates `.venv\Scripts\` (not `.venv/bin/`).
+
 On first run it automatically:
 1. Creates a Python virtual environment
 2. Installs PyMuPDF + Pillow
@@ -97,6 +115,8 @@ On first run it automatically:
 ---
 
 ## 📖 Usage
+
+### Linux / macOS
 
 ```bash
 # Chinese → Russian (auto-detects CJK, `-f` optional)
@@ -118,19 +138,33 @@ On first run it automatically:
 ./pdf-translate.py doc.pdf out.pdf -f zh -t ru --no-auto-lang
 ```
 
+### Windows
+
+```powershell
+# Same commands, but with `python pdf-translate.py` prefix
+python pdf-translate.py drawing.pdf ru.pdf -f zh -t ru
+python pdf-translate.py manual.pdf manual-ru.pdf -f en -t ru
+python pdf-translate.py doc.pdf doc-de.pdf -f en -t de --verify
+python pdf-translate.py doc.pdf out.pdf -f zh -t ru --page 3-7
+python pdf-translate.py scan.pdf scan-ru.pdf --ocr
+```
+
 ### JSON workflow (offline / external translation)
 
 Translate PDFs in three steps — parse, translate externally, rebuild:
 
+**Linux / macOS:**
 ```bash
-# Step 1: Export parsed lines to JSON
 ./pdf-translate.py input.pdf --export-json lines.json -f zh -t ru
-
-# Step 2: Translate via DeepLX (or edit JSON by hand / use another tool)
 ./pdf-translate.py --translate-json lines.json
-
-# Step 3: Rebuild PDF from translated JSON
 ./pdf-translate.py input.pdf output.pdf --import-json lines.json
+```
+
+**Windows:**
+```powershell
+python pdf-translate.py input.pdf --export-json lines.json -f zh -t ru
+python pdf-translate.py --translate-json lines.json
+python pdf-translate.py input.pdf output.pdf --import-json lines.json
 ```
 
 The JSON file contains every line with position, font, rotation metadata.
@@ -230,10 +264,12 @@ Full list: [DeepL docs](https://www.deepl.com/docs-api/translate-text)
 
 ```
 pdf-translate/
-├── pdf-translate.py   # single‑file pipeline (SENSE → ... → VERIFIER)
+├── pdf-translate.py       # single‑file pipeline (SENSE → ... → VERIFIER)
 ├── .venv/
-│   └── bin/
-│       └── deeplx     # DeepLX translation server (auto‑downloaded)
+│   ├── bin/
+│   │   └── deeplx         # Linux: DeepLX translation server (auto‑downloaded)
+│   └── Scripts/
+│       └── deeplx.exe     # Windows: DeepLX translation server (auto‑downloaded)
 ├── demo-files/
 │   └── msp430uif-demo.gif
 ├── README.md
@@ -262,7 +298,7 @@ PRs are very welcome! Ideas:
 - Multiprocessing for large documents
 - GUI / web frontend
 - More translation backends (LibreTranslate, local LLM)
-- Windows / macOS support for auto‑bootstrap
+- macOS auto‑bootstrap support
 
 Check [open issues](https://github.com/kostyk348/pdf-translate/issues) for planned work.
 
