@@ -693,7 +693,15 @@ def rebuild_pdf(doc: fitz.Document, pages: list[PageModel],
 
             cat = tl.font_category()
             fsize = tl.size
-            color = tl.color
+            raw_color = tl.color
+            if isinstance(raw_color, int):
+                color = ((raw_color >> 16) / 255.0,
+                         ((raw_color >> 8) & 0xFF) / 255.0,
+                         (raw_color & 0xFF) / 255.0)
+            elif isinstance(raw_color, (list, tuple)) and len(raw_color) == 3:
+                color = tuple(raw_color)
+            else:
+                color = (0, 0, 0)
             base_cat = FONT_ALIAS.get(cat, cat)
 
             if base_cat not in cat_cache:

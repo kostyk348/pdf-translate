@@ -57,6 +57,16 @@
 
 ---
 
+## 🎬 Demo
+
+Translating MSP430-UIF JTAG emulator documentation (Chinese → Russian):
+
+<p align="center">
+  <img src="demo-files/msp430uif-demo.gif" alt="pdf-translate demo — MSP430-UIF manual zh→ru" width="600">
+</p>
+
+---
+
 ## 🚀 Quick start
 
 ```bash
@@ -176,6 +186,9 @@ pdf-translate/
 ├── .venv/
 │   └── bin/
 │       └── deeplx     # DeepLX translation server (auto‑downloaded)
+├── demo-files/
+│   ├── pdf-translate-demo.gif
+│   └── msp430uif-demo.gif
 ├── README.md
 ├── LICENSE
 └── requirements.txt
