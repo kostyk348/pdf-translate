@@ -10,6 +10,8 @@
 [![PyMuPDF](https://img.shields.io/badge/PDF-PyMuPDF-orange)](https://github.com/pymupdf/PyMuPDF)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 [![CI](https://github.com/kostyk348/pdf-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/kostyk348/pdf-translate/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kostyk348/pdf-translate?sort=semver&color=blue)](https://github.com/kostyk348/pdf-translate/releases)
+[![Last commit](https://img.shields.io/github/last-commit/kostyk348/pdf-translate?branch=master)](https://github.com/kostyk348/pdf-translate/commits/master)
 
 <p align="center">
   <i>Chinese → Russian · English → Russian · 30+ language pairs · No API key · No broken layout</i>
@@ -78,13 +80,16 @@ Translating MSP430-UIF JTAG emulator documentation (Chinese → Russian):
 
 ```bash
 # Requirements
+
 sudo apt install fonts-liberation python3 python3-venv
 
 # Grab it
+
 git clone https://github.com/kostyk348/pdf-translate.git
 cd pdf-translate
 
 # Translate a Chinese technical drawing to Russian
+
 ./pdf-translate.py input.pdf output-ru.pdf -f zh -t ru
 ```
 
@@ -94,10 +99,12 @@ cd pdf-translate
 # Requirements: Python 3.10+ installed and in PATH
 
 # Grab it
+
 git clone https://github.com/kostyk348/pdf-translate.git
 cd pdf-translate
 
 # Translate (use python directly — no shebang on Windows)
+
 python pdf-translate.py input.pdf output-ru.pdf -f zh -t ru
 ```
 
@@ -120,21 +127,27 @@ On first run it automatically:
 
 ```bash
 # Chinese → Russian (auto-detects CJK, `-f` optional)
+
 ./pdf-translate.py drawing.pdf ru.pdf -f zh -t ru
 
 # English → Russian
+
 ./pdf-translate.py manual.pdf manual-ru.pdf -f en -t ru
 
 # Verify integrity with hash‑chain audit
+
 ./pdf-translate.py doc.pdf doc-de.pdf -f en -t de --verify
 
 # Specific page range
+
 ./pdf-translate.py doc.pdf out.pdf -f zh -t ru --page 3-7
 
 # With image OCR
+
 ./pdf-translate.py scan.pdf scan-ru.pdf --ocr
 
 # Disable auto‑language detection
+
 ./pdf-translate.py doc.pdf out.pdf -f zh -t ru --no-auto-lang
 ```
 
@@ -142,6 +155,7 @@ On first run it automatically:
 
 ```powershell
 # Same commands, but with `python pdf-translate.py` prefix
+
 python pdf-translate.py drawing.pdf ru.pdf -f zh -t ru
 python pdf-translate.py manual.pdf manual-ru.pdf -f en -t ru
 python pdf-translate.py doc.pdf doc-de.pdf -f en -t de --verify
@@ -237,10 +251,10 @@ any external translation pipeline — then import back to rebuild the PDF.
                                                            └─────────┘
 ```
 
-**SENSE** — Reads the PDF with PyMuPDF, extracts text blocks, lines, and spans with full positioning metadata (bbox, rotation, font, size).  
-**FACT** — Filters, deduplicates, and sorts lines into a canonical ordered list.  
-**LOGIC** — Sends each line to the DeepLX server for translation. Retries on failure.  
-**CAUSALITY** — Redacts original Chinese text (no white rectangles), inserts translated text at the exact same baseline position with matching rotation.  
+**SENSE** — Reads the PDF with PyMuPDF, extracts text blocks, lines, and spans with full positioning metadata (bbox, rotation, font, size).
+**FACT** — Filters, deduplicates, and sorts lines into a canonical ordered list.
+**LOGIC** — Sends each line to the DeepLX server for translation. Retries on failure.
+**CAUSALITY** — Redacts original Chinese text (no white rectangles), inserts translated text at the exact same baseline position with matching rotation.
 **VERIFIER** — Computes a hash chain over the entire translation log and verifies integrity.
 
 ---
